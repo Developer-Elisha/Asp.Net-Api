@@ -1,0 +1,226 @@
+< ======================================== ( Step # 1 ) ======================================== >
+
+1. Install Packages.
+
+2. Create and Connect DB.
+
+3. Create Models and Migrate it.
+
+4. Create Context file.
+
+5. Give Permission of Context file in Program.cs.
+
+6 Create a API Controller.
+
+7. Cros Policy error in program.cs file
+
+8. Api fetching in Angular app.component.ts
+
+9. Api fetching in Angular app.component.html
+
+2. <==================== ( DB Connect Steps )==================== >
+
+  Paste Connection String in "appsettings.json" file like:
+
+ "Connection String" : {
+           "variable_name" : "write here your Connection String + TrustServeCertificate=true"
+ }
+
+
+3. <==================== ( Create Models and Migrate )==================== >
+
+    [Key]
+    public int userId { get; set; }
+    [Required]
+    public string user_name { get; set; }
+
+    Run 
+         add-migration name
+
+         update-database
+
+
+4. <==================== ( Context file )==================== >
+
+  public class SqlContext:DbContext                                 (DbContext is a built in class)
+   {
+      public sqlcontext(DbContextOptions<sqlcontext> option) : base(option)
+        {
+
+        }
+           public DbSet<user> tblusers { get; set; }
+    }
+
+5. <==================== ( Context file in Program.cs )==================== >
+
+  builder.Services.AddDbContext<sqlcontext>(options =>
+  {
+    options.UseSqlServer(builder.Configuration.GetConnectionString("dbcon"));
+  });
+
+6. <==================== ( Create a API Controller )==================== >
+
+    SqlContext sc;
+    public MyApiController(SqlContext sc1) {
+        this.sc = sc1;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> add(user us)
+    {
+        await sc.tblusers.AddAsync(us);
+        await sc.SaveChangesAsync();
+        reture Ok("Data has been inserted);
+    }
+
+    
+    [HttpGet]
+        public async Task<IActionResult> fetchusers()
+        {
+            var record = await sc.tblusers.ToListAsync();
+            return Ok(record);
+        }
+
+
+
+
+
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var record = await sc.tblusers.FindAsync(id);
+            if (record != null)
+            {
+                sc.tblusers.Remove(record); // Mark the record for deletion
+                await sc.SaveChangesAsync(); // Save changes to the database
+                return Ok(record); // Return the deleted record
+            }
+            else
+            {
+                return NotFound(); // User not found
+            }
+        }
+
+
+
+
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> updateuser(user um)
+        {
+
+           var userupdated = sc.tblusers.Entry(um).State = EntityState.Modified;
+            if(userupdated != null)
+            {
+                
+                await sc.SaveChangesAsync();
+                return Ok(userupdated);
+            }
+            else
+            {
+                return NotFound();
+            }
+            
+        }
+
+
+
+
+        [HttpGet("{id}")]
+
+        public async Task<IActionResult> fetchspecificuser(int id)
+        {
+            var record = await sc.tblusers.FindAsync(id);
+            if(record != null)
+            {
+                return Ok(record);
+            }
+            else
+            {
+                return NotFound();
+            }
+
+
+7. <==================== ( Cros Policy error program.cs file )==================== >
+
+  builder.Services.AddCors(options =>
+  {
+     options.AddPolicy("AllowSpecificOrigin",
+     builder =>
+     {
+        builder.WithOrigins("http://example.com") 
+               .AllowAnyHeader()
+               .AllowAnyMethod();
+     });
+});
+
+                               And 
+      
+     app.UseCors("AllowSpecificOrigin"); before auth
+
+8. <==================== ( Angular app.component.ts )==================== >
+
+import { Component } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+  apiurl:string="https://localhost:7139/api/MyApi/api/getemployees";
+  userid:number=0;
+  apiurldelete:any='';
+  records:any = []
+  constructor(private http:HttpClient){
+    this.getdata();
+  }
+  getdata(){
+    this.http.get(this.apiurl).subscribe(data => {
+      console.log(data);
+      this.records = data
+    })
+  }
+  deleteuser(uid:number){
+    this.userid = uid;
+    this.apiurldelete="https://localhost:7139/api/MyApi/api/delete/"+this.userid;
+    this.http.delete(this.apiurldelete).subscribe(data=>{
+      alert("deleted"+this.userid);
+    },error=>{
+      alert("can not be deleted"+this.userid);
+    })
+
+  }
+  title = 'angular16';
+}
+
+9. <==================== ( Angular app.component.html )==================== >
+
+<div class="container">
+  <div class="row">
+    <div class="col-lg-6">
+      <h1>Employee Records</h1>
+    </div>
+    <div class="col-lg-6">
+      <img src="../assets/system-solid-18-autorenew.gif" alt="" height="20px" (click)="getdata()">
+    </div>
+  </div>
+  <hr>
+  <table class="table table-striped">
+    <thead>
+      <th>Name</th>
+      <th>Email</th>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of records">
+        <td>{{r.employeename}}</td>
+        <td>{{r.employeeemail}}</td>
+        <td>
+          <button class="btn btn-danger" (click)="deleteuser(r.employeeid)">Delete User</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
