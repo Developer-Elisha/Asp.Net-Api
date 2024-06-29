@@ -1,0 +1,133 @@
+﻿using EmployeeAttendanceSystem.DatabaseContext;
+using EmployeeAttendanceSystem.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace EmployeeAttendanceSystem.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class MyApiController : ControllerBase
+    {
+        SqlContext sc;
+        EmailService emm;
+        public MyApiController(SqlContext sc1,EmailService em1) {
+            this.sc = sc1;
+            this.emm = em1;
+
+        }
+        
+        [HttpPost("api/employee")]
+        public async Task<IActionResult> AddEmployee(EmployeeModel em)
+        {
+            Random rand = new Random();
+            var otp = rand.Next(1000,2000);
+            if(em != null)
+            {
+                await sc.tblemployee.AddAsync(em);
+                await sc.SaveChangesAsync();
+                emm.sendmessage(em.employeeemail);
+                return Ok("Data has been added");
+            }
+            else
+            {
+                return NotFound();
+            }
+
+        }
+        [HttpPost("api/month")]
+        public async Task<IActionResult> createmonths(MonthModel am)
+        {
+            await sc.tblmonth.AddAsync(am);
+            await sc.SaveChangesAsync();
+            return Ok();
+        }
+        [HttpGet("api/getmonths")]
+        public async Task<IActionResult> getmonths()
+        {
+            var months = await sc.tblmonth.ToListAsync();
+            return Ok(months);
+        }
+        [HttpGet("api/getattendance")]
+        public async Task<IActionResult> getattendance()
+        {
+            var att = await sc.tblattendance.ToListAsync();
+            return Ok(att);
+        }
+        [HttpGet("api/getemployees")]
+        public async Task<IActionResult> getemployees()
+        {
+            var att = await sc.tblemployee.ToListAsync();
+            return Ok(att);
+        }
+        [HttpPost("api/mark")]
+        public async Task<IActionResult> markattendance(attendancemodel attm, DateTime dt)
+        {
+            if (attm != null)
+            {
+                var validemployee = await sc.tblemployee.FindAsync(attm.Employee_Id);
+
+                var validmonth = await sc.tblmonth.FindAsync(attm.Month_Id);
+                
+                if (validmonth != null && validemployee != null)
+                {
+
+
+                    attm.emp = validemployee;
+                    attm.month = validmonth;
+
+                    if (attm.time.Date < dt.Date)
+                    {
+                        return BadRequest("Invalid Date Selected");
+                    }
+                    else
+                    {
+                        await sc.tblattendance.AddAsync(attm);
+                        await sc.SaveChangesAsync();
+                        emm.sendmessage(attm.emp.employeeemail,attm.status,attm.time);
+                        return Ok(attm);
+                    }
+
+                }
+                else
+                {
+                    return NotFound("Invalid Employee Ya Month Id");
+                }
+                
+               
+            }
+            else
+            {
+                return BadRequest();
+            }
+        }
+        [HttpPost("api/check/{dt}/{id}")]
+        public async Task<IActionResult> checkattendance(DateTime dt,int id)
+        {
+            var datetocheck = dt.Date;
+            var record = await sc.tblattendance.Where(a => 
+            a.time.Date == datetocheck
+            &&
+            a.Employee_Id == id 
+            ).ToListAsync();
+            if(record != null)
+            {
+                return Ok(record);
+            }
+            else
+            {
+                return NotFound("Invalid employee status date");
+            }
+        }
+        [HttpDelete("api/delete/{id}")]
+        public async Task<IActionResult> deleteuser(int id)
+        {
+            var record = await sc.tblemployee.FindAsync(id);
+            sc.tblemployee.Remove(record);
+            sc.SaveChanges();
+            return Ok("deleted");
+        }
+
+    }
+}
